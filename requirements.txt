@@ -1,0 +1,13 @@
+torch
+transformers
+sentence-transformers
+pandas
+numpy
+fastapi
+uvicorn
+requests
+beautifulsoup4
+python-dotenv
+chromadb
+langchain
+openai

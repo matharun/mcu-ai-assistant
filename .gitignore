@@ -1,0 +1,33 @@
+# Environment variables
+.env
+
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database files
+*.db
+
+# Data files
+*.csv
+*.xls
+*.xlsx
+
+# Import script (one time use)
+"import_to _mongo.py"
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
