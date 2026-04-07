@@ -98,6 +98,17 @@ The embeddings index only needs to be built once. If you add new MCUs, run build
 Never commit your .env file to GitHub — it contains your API key
 The .env file is already in .gitignore by default
 
+## Frontend
+React-based chat UI → https://github.com/matharun/mcu-ai-frontend
+
+## Running the Full Stack
+# Terminal 1 — Backend
+cd api
+uvicorn endpoints:app --reload --port 8000
+
+# Terminal 2 — Frontend  
+cd frontend
+npm run dev
 
 Author
 GitHub: https://github.com/matharun 
