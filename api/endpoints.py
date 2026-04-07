@@ -107,6 +107,20 @@ async def health_check():
 async def ask_mcu_recommendation(request: MCUQuery):
     """Get MCU recommendation based on user query"""
     try:
+        # Validate input
+        query = request.query.strip()
+        if len(query) < 10:
+            return MCUResponse(
+                success=False,
+                query=query,
+                ai_recommendation="Please describe your requirements in more detail. For example: 'I need a low power MCU with WiFi for an IoT sensor'",
+                requirements={},
+                database_results=[],
+                web_results=[],
+                web_fallback_used=False,
+                processing_time=0.0,
+                error_message="Query too short"
+            )
         print(f"📝 Received query: {request.query}")
         
         # Process the query
@@ -141,27 +155,13 @@ async def ask_mcu_recommendation(request: MCUQuery):
 async def get_api_stats():
     """Get API usage statistics"""
     try:
-        import sqlite3
-        conn = sqlite3.connect(mcu_system.db.db_path)
-        cursor = conn.cursor()
-        
-        # Get search history stats
-        cursor.execute("SELECT COUNT(*) FROM search_history")
-        total_searches = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT AVG(response_time) FROM search_history")
-        avg_response_time = cursor.fetchone()[0] or 0
-        
-        cursor.execute("SELECT query FROM search_history ORDER BY timestamp DESC LIMIT 5")
-        recent_queries = [row[0] for row in cursor.fetchall()]
-        
-        conn.close()
+        total_mcus = mcu_system.db.get_mcu_count()
         
         return {
-            "total_searches": total_searches,
-            "average_response_time": round(avg_response_time, 2),
-            "recent_queries": recent_queries,
-            "database_mcus": len(mcu_system.db.get_all_mcus())
+            "total_searches": 0,
+            "average_response_time": 0,
+            "recent_queries": [],
+            "database_mcus": total_mcus
         }
         
     except Exception as e:
@@ -176,3 +176,11 @@ if __name__ == "__main__":
         reload=True,
         log_level="info"
     )
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

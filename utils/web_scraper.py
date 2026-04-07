@@ -398,7 +398,7 @@ class MCUWebScraper:
         return None
     
     def search_mcu_online(self, query: str) -> List[Dict[str, Any]]:
-        """Search for MCU information online (placeholder)"""
+        """Search for MCU information online"""
         
         print(f"🔍 Searching online for: {query}")
         
@@ -406,20 +406,97 @@ class MCUWebScraper:
             print("⚠️ Online search disabled (web scraping not enabled)")
             return []
         
-        # This would implement actual search functionality
-        # Could search manufacturer websites, distributors, etc.
-        
-        # Placeholder implementation
-        search_urls = [
-            f"https://example-distributor.com/search?q={query}",
-            f"https://example-manufacturer.com/products?search={query}"
-        ]
-        
         results = []
-        for url in search_urls:
-            # This is just a placeholder - would need real implementation
-            print(f"📡 Would search: {url}")
         
+        # Search DigiKey
+        try:
+            import urllib.parse
+            encoded_query = urllib.parse.quote(query)
+            url = f"https://www.digikey.com/en/products/filter/embedded-mcu-dsp/microcontrollers/685?k={encoded_query}"
+            
+            time.sleep(self.request_delay)
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Parse product rows
+                rows = soup.select('tr[data-line-id]')[:5]
+                for row in rows:
+                    name_el = row.select_one('[data-id="catalog-part-number"]')
+                    mfr_el = row.select_one('[data-id="catalog-manufacturer"]')
+                    desc_el = row.select_one('[data-id="catalog-description"]')
+                    price_el = row.select_one('[data-id="catalog-unit-price"]')
+                    
+                    if name_el:
+                        results.append({
+                            "source": "digikey",
+                            "name": name_el.get_text(strip=True),
+                            "manufacturer": mfr_el.get_text(strip=True) if mfr_el else "",
+                            "description": desc_el.get_text(strip=True) if desc_el else "",
+                            "price": price_el.get_text(strip=True) if price_el else "",
+                        })
+                print(f"✅ DigiKey returned {len(results)} results")
+        except Exception as e:
+            print(f"⚠️ DigiKey search failed: {e}")
+        
+        # Search Mouser if DigiKey gave nothing
+        if not results:
+            try:
+                encoded_query = urllib.parse.quote(query)
+                url = f"https://www.mouser.com/c/semiconductors/embedded-processors-controllers/microcontrollers-mcu/?q={encoded_query}"
+                
+                time.sleep(self.request_delay)
+                response = self.session.get(url, timeout=10)
+                
+                if response.status_code == 200:
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    
+                    items = soup.select('.product-details')[:5]
+                    for item in items:
+                        name_el = item.select_one('.part-number')
+                        mfr_el = item.select_one('.manufacturer')
+                        desc_el = item.select_one('.description')
+                        
+                        if name_el:
+                            results.append({
+                                "source": "mouser",
+                                "name": name_el.get_text(strip=True),
+                                "manufacturer": mfr_el.get_text(strip=True) if mfr_el else "",
+                                "description": desc_el.get_text(strip=True) if desc_el else "",
+                            })
+                    print(f"✅ Mouser returned {len(results)} results")
+            except Exception as e:
+                print(f"⚠️ Mouser search failed: {e}")
+
+        # Fallback — scrape Google for MCU recommendations
+        if not results:
+            try:
+                encoded_query = urllib.parse.quote(f"best MCU microcontroller {query} site:reddit.com OR site:electronics.stackexchange.com")
+                url = f"https://www.google.com/search?q={encoded_query}"
+                
+                time.sleep(self.request_delay)
+                response = self.session.get(url, timeout=10)
+                
+                if response.status_code == 200:
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    snippets = soup.select('.VwiC3b')[:3]
+                    for s in snippets:
+                        text = s.get_text(strip=True)
+                        if text:
+                            results.append({
+                                "source": "google",
+                                "name": "",
+                                "description": text
+                            })
+                    print(f"✅ Google returned {len(results)} snippets")
+            except Exception as e:
+                print(f"⚠️ Google search failed: {e}")
+        
+        print(f"🌐 Total web results: {len(results)}")
         return results
     
     def get_latest_mcu_releases(self) -> List[Dict[str, Any]]:
@@ -460,7 +537,7 @@ def test_web_scraper():
     print("🧪 Testing Web Scraper...")
     
     # Test with scraping disabled (default)
-    scraper = MCUWebScraper(enable_scraping=False)
+    scraper = MCUWebScraper(enable_scraping=True)
     
     # Test basic functionality
     print("✅ Web scraper initialized (disabled)")

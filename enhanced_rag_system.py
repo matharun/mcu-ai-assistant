@@ -3,6 +3,7 @@ from utils.query_processor import QueryProcessor
 from utils.llm_manager import LLMManager
 from utils.web_scraper import MCUWebScraper
 from database.db_manager import MCUDatabase
+from utils.groq_llm_manager import GroqAPIManager
 import time
 
 class EnhancedMCUSystem:
@@ -14,8 +15,8 @@ class EnhancedMCUSystem:
         self.db = MCUDatabase()
         self.embedding_manager = EmbeddingManager()
         self.query_processor = QueryProcessor()
-        self.llm_manager = LLMManager()
-        self.web_scraper = MCUWebScraper()
+        self.llm_manager = GroqAPIManager()
+        self.web_scraper = MCUWebScraper(enable_scraping=True)
         
         # Thresholds for fallback
         self.similarity_threshold = 0.6  # If best match is below this, search web
@@ -45,13 +46,13 @@ class EnhancedMCUSystem:
         
         if use_web_fallback:
             print("🌐 Triggering web search fallback...")
-            web_results = self.web_scraper.search_mcu_specs(user_query, max_results=3)
-            web_context = self.web_scraper.create_web_context(web_results)
+            web_results = self.web_scraper.search_mcu_online(user_query)
+            web_context = str(web_results) if web_results else ""
         
         # Step 4: Create combined context
         db_context = ""
         if similar_mcus:
-            mcu_ids = [mcu_id for mcu_id, similarity in similar_mcus]
+            mcu_ids = [mcu_id for mcu_id, similarity, mcu_data in similar_mcus]
             db_context = self.embedding_manager.get_mcu_context(mcu_ids)
         
         combined_context = self.combine_contexts(db_context, web_context)
@@ -68,7 +69,7 @@ class EnhancedMCUSystem:
         result = {
             "query": user_query,
             "requirements": requirements,
-            "database_results": similar_mcus,
+            "database_results": [{"id": str(mcu_id), "similarity": similarity, "name": mcu_data.get("name",""), "manufacturer": mcu_data.get("manufacturer","")} for mcu_id, similarity, mcu_data in similar_mcus],
             "web_results": web_results,
             "web_fallback_used": use_web_fallback,
             "combined_context": combined_context,
@@ -114,17 +115,14 @@ class EnhancedMCUSystem:
 
     def log_search(self, query: str, results_found: int, response_time: float):
         """Log search to database"""
-        import sqlite3
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO search_history (query, results_found, response_time)
-            VALUES (?, ?, ?)
-        ''', (query, results_found, response_time))
-        
-        conn.commit()
-        conn.close()
+        try:
+            self.db.search_history.insert_one({
+                "query": query,
+                "results_found": results_found,
+                "response_time": response_time
+            })
+        except Exception as e:
+            print(f"⚠️ Could not log search: {e}")
 
     def display_enhanced_results(self, result: dict):
         """Display enhanced results with fallback info"""

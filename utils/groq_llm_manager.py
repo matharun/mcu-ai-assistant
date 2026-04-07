@@ -127,24 +127,30 @@ class GroqAPIManager:
     def create_mcu_prompt(self, query: str, context: str, requirements: Dict) -> str:
         """Create a focused prompt for MCU recommendation"""
         
-        prompt = f"""Based on the MCU database information below, provide a detailed recommendation for the best microcontroller.
+        prompt = f"""You are an expert MCU recommendation engine. Your job is to recommend microcontrollers ONLY from the database results provided below.
 
-USER QUERY: {query}
+    STRICT RULES — YOU MUST FOLLOW THESE:
+    1. NEVER invent, guess, or hallucinate MCU model names. Only use MCUs explicitly listed in the AVAILABLE MCUs section below.
+    2. If no MCU in the database matches the requirements well, say exactly: "I could not find a suitable MCU in my current database for your requirements." Then suggest the user check Digikey (digikey.com) or Mouser (mouser.com) directly.
+    3. Never say "hypothetical", "fictional", or "assumed" MCU. If you don't have it, admit it.
+    4. Do not recommend MCUs from your own training knowledge — only from the database results below.
 
-DETECTED REQUIREMENTS:
-{json.dumps(requirements, indent=2)}
+    USER QUERY: {query}
 
-AVAILABLE MCUs IN DATABASE:
-{context[:1000]}
+    DETECTED REQUIREMENTS:
+    {json.dumps(requirements, indent=2)}
 
-Please provide:
-1. **Recommended MCU**: Specific model name and why it's the best choice
-2. **Key Specifications**: CPU, memory, peripherals, power consumption
-3. **Why It Fits**: How it meets the specific requirements
-4. **Alternative Options**: 1-2 backup choices if available
-5. **Trade-offs**: Any limitations or considerations
+    AVAILABLE MCUs IN DATABASE:
+    {context[:1500]}
 
-Format your response clearly with headers and bullet points."""
+    If suitable MCUs are found above, provide:
+    1. **Recommended MCU**: Exact model name from the database only
+    2. **Key Specifications**: CPU, memory, peripherals, power consumption
+    3. **Why It Fits**: How it meets the specific requirements
+    4. **Alternative Options**: Only from the database results above
+    5. **Trade-offs**: Any limitations or considerations
+
+    If no suitable MCU is found, clearly say so and point the user to Digikey or Mouser."""
         
         return prompt
 
